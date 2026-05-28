@@ -116,14 +116,29 @@ document.addEventListener('DOMContentLoaded', function () {
             logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted opacity-50">Belum ada aktivitas intelijen.</td></tr>';
             return;
         }
-        logsBody.innerHTML = logs.map(log => `
-            <tr>
-                <td><div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div></td>
-                <td><strong>${log.ip}</strong><br><span class="text-muted extra-small">${log.isp || '-'}</span></td>
-                <td><span class="small">${log.location}</span></td>
-                <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
-            </tr>
-        `).join('');
+        logsBody.innerHTML = logs.map(log => {
+            const isTrap = log.type === 'TRAP';
+            const badgeClass = isTrap ? 'bg-danger text-white' : 'bg-primary text-white';
+            const sourceLabel = isTrap ? 'LINK TRAP' : 'LIVE TRACK';
+            
+            return `
+                <tr class="animate__animated animate__fadeIn">
+                    <td>
+                        <div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div>
+                        <span class="badge ${badgeClass} extra-small mt-1" style="font-size: 0.65rem;">${sourceLabel}</span>
+                    </td>
+                    <td>
+                        <strong>${log.ip}</strong><br>
+                        <span class="text-muted extra-small">${log.isp || '-'}</span>
+                    </td>
+                    <td>
+                        <span class="small text-white">${log.location}</span>
+                        ${isTrap ? `<div class="extra-small text-info text-truncate" style="max-width: 120px;">Target: ${log.target}</div>` : ''}
+                    </td>
+                    <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
+                </tr>
+            `;
+        }).join('');
     }
 
     // 6. Track Action
