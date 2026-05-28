@@ -34,36 +34,75 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     detectMyIp();
 
-    // 3. Save to Cloud/Local
+    // 3. IP Intelligence APIs (Multi-server Fallback)
+    async function fetchIpIntel(ip = '') {
+        const query = ip ? `/${ip}` : '';
+        
+        // Try Server 1: ipapi.co
+        try {
+            const res = await fetch(`https://ipapi.co${query}/json/`);
+            const data = await res.json();
+            if (!data.error) return {
+                ip: data.ip,
+                isp: data.org,
+                location: `${data.city}, ${data.country_name}`,
+                city: data.city,
+                country: data.country_name,
+                lat: data.latitude,
+                lon: data.longitude,
+                timezone: data.timezone
+            };
+        } catch (e) { console.warn("Server 1 (ipapi.co) failed"); }
+
+        // Try Server 2: geojs.io
+        try {
+            const res = await fetch(`https://get.geojs.io/v1/ip/geo${query}.json`);
+            const data = await res.json();
+            return {
+                ip: data.ip,
+                isp: data.organization_name || data.organization,
+                location: `${data.city}, ${data.country}`,
+                city: data.city,
+                country: data.country,
+                lat: data.latitude,
+                lon: data.longitude,
+                timezone: data.timezone
+            };
+        } catch (e) { console.warn("Server 2 (geojs.io) failed"); }
+
+        throw new Error("Gagal menghubungi semua server intelijen.");
+    }
+
+    // 4. Save to Cloud/Local
     async function saveLog(data, type = 'Manual', targetUrl = 'Manual Search') {
         const cloudUrl = localStorage.getItem('spy_cloud_url');
         const logEntry = {
-            ip: data.ip || data.query || 'Unknown',
-            isp: data.org || data.isp || 'Unknown',
-            location: `${data.city || 'Unknown'}, ${data.country_name || data.country || 'Unknown'}`,
-            coords: `${data.latitude || data.lat || 0}, ${data.longitude || data.lon || 0}`,
+            ip: data.ip || 'Unknown',
+            isp: data.isp || 'Unknown',
+            location: data.location || 'Unknown',
+            coords: `${data.lat || 0}, ${data.lon || 0}`,
             target: targetUrl,
             type: type
         };
 
-        // Simpan ke LocalStorage (Selalu)
+        // Save to LocalStorage
         const localLogs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
         localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
         localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
 
-        // Simpan ke Cloud (Jika dikonfigurasi)
+        // Save to Cloud
         if (cloudUrl && cloudUrl.startsWith('http')) {
             try {
                 await fetch(cloudUrl, {
                     method: 'POST',
-                    mode: 'no-cors', // Google Script requires this for simple POST
+                    mode: 'no-cors',
                     body: JSON.stringify(logEntry)
                 });
             } catch (e) { console.error("Cloud Save Failed"); }
         }
     }
 
-    // 4. Fetch Logs (Cloud or Local)
+    // 5. Fetch Logs
     async function loadLogs() {
         const cloudUrl = localStorage.getItem('spy_cloud_url');
         logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Syncing data...</td></tr>';
@@ -88,44 +127,42 @@ document.addEventListener('DOMContentLoaded', function () {
         logsBody.innerHTML = logs.map(log => `
             <tr>
                 <td><div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div></td>
-                <td><strong>${log.ip}</strong><br><span class="text-muted extra-small">${log.isp}</span></td>
+                <td><strong>${log.ip}</strong><br><span class="text-muted extra-small">${log.isp || '-'}</span></td>
                 <td><span class="small">${log.location}</span></td>
                 <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
             </tr>
         `).join('');
     }
 
-    // 5. Track Action
+    // 6. Track Action
     async function performTrack(targetIp) {
         showLoading(true);
         resultArea.innerHTML = '';
-        const queryIp = targetIp || await detectMyIp();
         
         try {
-            const res = await fetch(`https://ipapi.co/${queryIp}/json/`);
-            const data = await res.json();
+            const data = await fetchIpIntel(targetIp);
             showLoading(false);
-            
-            if (data.error) {
-                resultArea.innerHTML = `<div class="alert alert-danger">IP tidak valid.</div>`;
-                return;
-            }
 
             resultArea.innerHTML = `
                 <div class="result-card border-primary border-opacity-25 animate__animated animate__fadeInUp">
                     <h5 class="fw-bold text-primary mb-4 d-flex align-items-center"><i class="fas fa-user-secret me-2"></i>Intel: ${data.ip}</h5>
                     <div class="row g-3">
-                        <div class="col-sm-6"><div class="data-label">LOKASI</div><div class="fs-6 text-white">${data.city}, ${data.country_name}</div></div>
-                        <div class="col-sm-6"><div class="data-label">KOORDINAT</div><div class="fs-6 text-white">${data.latitude}, ${data.longitude}</div></div>
+                        <div class="col-sm-6"><div class="data-label">LOKASI</div><div class="fs-6 text-white">${data.location}</div></div>
+                        <div class="col-sm-6"><div class="data-label">KOORDINAT</div><div class="fs-6 text-white">${data.lat}, ${data.lon}</div></div>
+                        <div class="col-sm-6"><div class="data-label">ISP</div><div class="small text-white opacity-75">${data.isp}</div></div>
+                        <div class="col-sm-6"><div class="data-label">ZONA WAKTU</div><div class="small text-white opacity-75">${data.timezone || '-'}</div></div>
                     </div>
-                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="map-link w-100 text-center mt-3 py-2">BUKA PETA</a>
+                    <a href="https://www.google.com/maps?q=${data.lat},${data.lon}" target="_blank" class="map-link w-100 text-center mt-3 py-2">BUKA PETA</a>
                 </div>`;
             
             saveLog(data, targetIp ? 'Search' : 'Self');
-        } catch (e) { showLoading(false); alert("Server error"); }
+        } catch (e) { 
+            showLoading(false); 
+            resultArea.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
     }
 
-    // 6. UI Events
+    // 7. UI Events
     document.getElementById('btn-track-ip').addEventListener('click', () => performTrack(document.getElementById('ip-to-track').value));
     document.getElementById('btn-track-me').addEventListener('click', () => performTrack(''));
     document.getElementById('logs-tab').addEventListener('click', loadLogs);
@@ -133,16 +170,15 @@ document.addEventListener('DOMContentLoaded', function () {
     
     document.getElementById('btn-save-api').addEventListener('click', function() {
         localStorage.setItem('spy_cloud_url', cloudApiInput.value.trim());
-        const btn = this;
-        btn.innerHTML = '<i class="fas fa-check"></i>';
-        setTimeout(() => btn.innerHTML = '<i class="fas fa-save"></i>', 2000);
+        this.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => this.innerHTML = '<i class="fas fa-save"></i>', 2000);
     });
 
     document.getElementById('btn-clear-logs').addEventListener('click', () => {
         if(confirm('Hapus log lokal?')) { localStorage.removeItem('spy_logs'); loadLogs(); }
     });
 
-    // 7. Link Generator (Trap System)
+    // Link Generator
     const btnGenerate = document.getElementById('btn-generate-link');
     const spyUrlResult = document.getElementById('spy-url-result');
     const generatedResult = document.getElementById('generated-result');
@@ -150,7 +186,6 @@ document.addEventListener('DOMContentLoaded', function () {
     btnGenerate.addEventListener('click', () => {
         const targetUrl = document.getElementById('target-url').value.trim();
         if (!targetUrl.startsWith('http')) return alert('Masukkan URL lengkap!');
-        
         const currentUrl = window.location.href.split('?')[0];
         const spyId = Math.random().toString(36).substring(7);
         spyUrlResult.value = `${currentUrl}?id=${spyId}&redir=${encodeURIComponent(targetUrl)}`;
@@ -167,30 +202,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('id') && urlParams.has('redir')) {
         const redirTarget = urlParams.get('redir');
-        const cloudUrl = localStorage.getItem('spy_cloud_url');
         
-        // Silent Tracking
-        fetch('https://ipapi.co/json/')
-            .then(res => res.json())
-            .then(data => {
-                // Prepare log data
-                const logEntry = {
-                    ip: data.ip,
-                    isp: data.org,
-                    location: `${data.city}, ${data.country_name}`,
-                    coords: `${data.latitude}, ${data.longitude}`,
-                    target: redirTarget,
-                    type: 'TRAP'
-                };
-
-                // Send to Cloud if configured
-                if (cloudUrl) {
-                    fetch(cloudUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(logEntry) })
-                        .finally(() => window.location.href = redirTarget);
-                } else {
-                    window.location.href = redirTarget;
-                }
-            })
-            .catch(() => window.location.href = redirTarget);
+        // Silent Tracking with fallback
+        fetchIpIntel('')
+            .then(data => saveLog(data, 'TRAP', redirTarget))
+            .finally(() => window.location.href = redirTarget);
     }
 });
