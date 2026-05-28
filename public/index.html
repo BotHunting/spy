@@ -8,6 +8,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body { background: #0a0c10; color: #e6edf3; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        .spy-card { background: #161b22; border: 1px solid #30363d !important; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important; }
+        .spy-header-bg { background: linear-gradient(135deg, #1f6feb 0%, #0d1117 100%); height: 8px; }
+        .card-header { border-bottom: 1px solid #30363d !important; background: rgba(22, 27, 34, 0.8); backdrop-filter: blur(10px); }
+        .nav-pills .nav-link { color: #8b949e; transition: all 0.3s ease; border: 1px solid transparent; }
+        .nav-pills .nav-link.active { background-color: #1f6feb !important; color: white !important; box-shadow: 0 0 15px rgba(31, 111, 235, 0.4); }
+        .nav-pills .nav-link:hover:not(.active) { background: rgba(48, 54, 61, 0.5); color: #c9d1d9; }
+        .ip-badge { background: #0d1117; border: 1px solid #30363d; color: #58a6ff; font-family: 'Courier New', monospace; font-weight: bold; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+        .btn-primary { background-color: #238636; border: none; } /* Green accent for "Track" buttons */
+        .btn-primary:hover { background-color: #2ea043; }
+        .data-label { letter-spacing: 1.5px; color: #8b949e; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .result-card { background: #0d1117; border-radius: 12px; padding: 20px; border-left: 4px solid #1f6feb; }
+        .form-control { background-color: #0d1117 !important; border: 1px solid #30363d !important; color: #c9d1d9 !important; }
+        .form-control:focus { border-color: #1f6feb !important; box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.2); }
+        /* Hide settings tab by default */
+        #settings-nav-item { display: none; }
+    </style>
 </head>
 <body>
     <div class="container py-5">
@@ -16,13 +34,13 @@
                 <div class="spy-card shadow-lg border-0 overflow-hidden">
                     <div class="spy-header-bg"></div>
                     <div class="card-header text-white text-center py-4 position-relative">
-                        <div class="mb-2"><i class="fas fa-user-secret fs-1 spy-icon-anim"></i></div>
+                        <div class="mb-2"><i class="fas fa-user-secret fs-1 spy-icon-anim" id="secret-trigger" style="cursor: pointer;" title="System Core"></i></div>
                         <h1 class="h3 mb-0">Spy Location Tracker</h1>
                         <p class="mb-0 opacity-75 small">GitHub Edition (Static Intelligence)</p>
                     </div>
                     
                     <div class="card-body p-4 p-md-5 position-relative">
-                        <ul class="nav nav-pills nav-justified mb-5 bg-dark rounded-pill p-1 shadow-sm" id="spyTabs" role="tablist">
+                        <ul class="nav nav-pills nav-justified mb-4 bg-dark rounded-pill p-1 shadow-sm" id="spyTabs" role="tablist">
                             <li class="nav-item">
                                 <button class="nav-link active rounded-pill" id="track-tab" data-bs-toggle="pill" data-bs-target="#tab-track" type="button"><i class="fas fa-search-location me-2"></i>Live Tracker</button>
                             </li>
@@ -31,6 +49,9 @@
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link rounded-pill" id="logs-tab" data-bs-toggle="pill" data-bs-target="#tab-logs" type="button"><i class="fas fa-list-ul me-2"></i>Spy Logs</button>
+                            </li>
+                            <li class="nav-item" id="settings-nav-item">
+                                <button class="nav-link rounded-pill" id="settings-tab" data-bs-toggle="pill" data-bs-target="#tab-settings" type="button"><i class="fas fa-cog me-2"></i>Settings</button>
                             </li>
                         </ul>
 
@@ -111,6 +132,26 @@
                                         </thead>
                                         <tbody id="logs-body"></tbody>
                                     </table>
+                                </div>
+                            </div>
+
+                            <!-- Tab 4: Settings -->
+                            <div class="tab-pane fade" id="tab-settings">
+                                <div class="text-center mb-4">
+                                    <h4 class="fw-bold">Konfigurasi Cloud API</h4>
+                                    <p class="text-muted small">Hubungkan tracker ke Google Sheets via Google Apps Script.</p>
+                                </div>
+                                <div class="row justify-content-center">
+                                    <div class="col-md-11">
+                                        <div class="data-label mb-2">GOOGLE APPS SCRIPT URL (EXEC)</div>
+                                        <div class="input-group mb-3">
+                                            <input type="url" id="cloud-api-url" class="form-control text-white bg-dark border-secondary" value="https://script.google.com/macros/s/AKfycbzqRS_Gl7w0xPGxh2-e3khkpBwGcMHIktgYUw_pHajSADSn692MHTGFIFeJ_FmnzzytjQ/exec" placeholder="https://script.google.com/macros/s/.../exec">
+                                            <button class="btn btn-primary" id="btn-save-settings">SIMPAN</button>
+                                        </div>
+                                        <div class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 small">
+                                            <i class="fas fa-question-circle me-1"></i> Pastikan URL diakhiri dengan <code>/exec</code> dan aksesnya disetel ke "Anyone, even anonymous".
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
