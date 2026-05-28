@@ -28,10 +28,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 3. Render HTML Hasil Pelacakan
     function renderIntelHTML(data) {
-        const ip = data.ip || data.query || 'Unknown';
+        const ip = data.ip || data.query || data.organization || 'Unknown';
         const city = data.city || 'Unknown';
         const country = data.country_name || data.country || 'Unknown';
-        const isp = data.org || data.isp || 'Unknown';
+        const isp = data.org || data.isp || data.asn_org || 'Unknown';
         const lat = data.latitude || data.lat || 0;
         const lon = data.longitude || data.lon || 0;
         const timezone = data.timezone || '-';
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
             id: Date.now(),
             timestamp: new Date().toLocaleString('id-ID'),
             ip: data.ip || data.query || 'Unknown',
-            isp: data.org || data.isp || 'Unknown',
+            isp: data.org || data.isp || data.asn_org || 'Unknown',
             location: `${data.city || 'Unknown'}, ${data.country_name || data.country || 'Unknown'}`,
             coords: `${data.latitude || data.lat || 0}, ${data.longitude || data.lon || 0}`,
             type: type
@@ -89,7 +89,6 @@ document.addEventListener('DOMContentLoaded', function () {
         resultArea.innerHTML = '';
         geoResult.classList.add('d-none');
 
-        // Jika IP kosong, ambil IP sendiri dulu
         let queryIp = targetIp;
         if (!queryIp) {
             queryIp = await detectMyIp();
@@ -102,22 +101,31 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            // Menggunakan ipapi.co (HTTPS friendly & No Key needed for basic use)
-            const response = await fetch(`https://ipapi.co/${queryIp}/json/`);
-            const data = await response.json();
+            // API 1: ipapi.co (Utama)
+            let response = await fetch(`https://ipapi.co/${queryIp}/json/`);
+            let data = await response.json();
             
-            showLoading(false);
-            if (data.error) {
-                resultArea.innerHTML = `<div class="alert alert-danger border-danger border-opacity-25 animate__animated animate__fadeIn"><i class="fas fa-times-circle me-2"></i> Format IP tidak valid atau tidak ditemukan.</div>`;
-                return;
+            if (data.error || data.reason === "RateLimit") {
+                throw new Error("Rate limit or Error");
             }
 
+            showLoading(false);
             resultArea.innerHTML = renderIntelHTML(data);
             saveLog(data, targetIp ? 'Target Search' : 'Self Track');
+
         } catch (err) {
-            showLoading(false);
-            // Fallback ke ip-api.com jika ipapi.co gagal (Note: ip-api.com hanya support HTTP unless paid)
-            resultArea.innerHTML = `<div class="alert alert-warning border-warning border-opacity-25">Gagal menghubungi server utama. Pastikan koneksi internet stabil.</div>`;
+            // Fallback API 2: geojs.io (Lebih stabil & No Rate Limit)
+            try {
+                const response = await fetch(`https://get.geojs.io/v1/ip/geo/${queryIp}.json`);
+                const data = await response.json();
+                
+                showLoading(false);
+                resultArea.innerHTML = renderIntelHTML(data);
+                saveLog(data, targetIp ? 'Target Search' : 'Self Track');
+            } catch (err2) {
+                showLoading(false);
+                resultArea.innerHTML = `<div class="alert alert-danger border-danger border-opacity-25">Gagal menghubungi semua server intelijen. Periksa koneksi internet Anda atau matikan ad-blocker.</div>`;
+            }
         }
     }
 
@@ -212,8 +220,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('id') && urlParams.has('redir')) {
         const redirTarget = urlParams.get('redir');
-        // Lakukan pelacakan diam-diam sebelum redirect
-        fetch('https://ipapi.co/json/')
+        // Lakukan pelacakan diam-diam sebelum redirect menggunakan Fallback API
+        fetch('https://get.geojs.io/v1/ip/geo.json')
             .then(res => res.json())
             .then(data => {
                 saveLog(data, 'Trap Link Click');
