@@ -183,10 +183,22 @@ document.addEventListener('DOMContentLoaded', function () {
         generatedResult.classList.remove('d-none');
     });
 
-    document.getElementById('btn-copy-link').addEventListener('click', () => {
-        spyUrlResult.select();
-        document.execCommand('copy');
-        alert('Link jebakan berhasil disalin!');
+    document.getElementById('btn-copy-link').addEventListener('click', async function() {
+        const btn = this;
+        const originalHTML = btn.innerHTML;
+        try {
+            await navigator.clipboard.writeText(spyUrlResult.value);
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            btn.classList.replace('btn-outline-success', 'btn-success');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.replace('btn-success', 'btn-outline-success');
+            }, 2000);
+        } catch (err) {
+            // Fallback for older browsers
+            spyUrlResult.select();
+            document.execCommand('copy');
+        }
     });
 
     // 8. Event Listeners Tab 3 (Logs)
