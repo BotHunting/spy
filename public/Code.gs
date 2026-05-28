@@ -56,12 +56,6 @@ function getSheet() {
 function createJsonResponse(payload, statusCode) {
   const content = ContentService.createTextOutput(JSON.stringify(payload));
   content.setMimeType(ContentService.MimeType.JSON);
-  content.setHeader('Access-Control-Allow-Origin', '*');
-  content.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-  content.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (statusCode) {
-    content.setHeader('Status', statusCode.toString());
-  }
   return content;
 }
 
@@ -71,15 +65,36 @@ function doGet(e) {
     const sheet = getSheet();
     const values = sheet.getDataRange().getValues();
     const headers = values.shift() || SHEET_HEADERS;
+    const headerMap = {
+      'Timestamp': 'timestamp',
+      'Type': 'type',
+      'IP': 'ip',
+      'ISP': 'isp',
+      'Location': 'location',
+      'Coords': 'coords',
+      'Timezone': 'timezone',
+      'OS': 'os',
+      'Browser': 'browser',
+      'Resolution': 'resolution',
+      'Language': 'language',
+      'Platform': 'platform',
+      'Target': 'target',
+      'UserAgent': 'userAgent',
+      'BatteryLevel': 'batteryLevel',
+      'BatteryStatus': 'batteryStatus',
+      'NetworkType': 'networkType',
+      'NetworkSpeed': 'networkSpeed',
+      'IsProxy': 'isProxy',
+      'IsIncognito': 'isIncognito',
+      'Device': 'device'
+    };
+
     const logs = values
       .filter(row => row[0])
       .map(row => {
         const record = {};
         headers.forEach((header, idx) => {
-          const key = header
-            .replace(/\s+/g, '')
-            .replace(/^./, s => s.toLowerCase())
-            .replace(/(\b[A-Z])/g, match => match);
+          const key = headerMap[header] || header.replace(/\s+/g, '').toLowerCase();
           record[key] = row[idx];
         });
         return record;
