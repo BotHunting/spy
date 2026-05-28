@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const res = await fetch('https://api.ipify.org?format=json');
             const data = await res.json();
-            myIpBadge.innerHTML = `<i class="fas fa-shield-alt me-2 text-primary"></i>${data.ip}`;
+            myIpBadge.innerHTML = `<i class="fas fa-shield-alt me-2 text-primary"></i><span class="font-monospace">${data.ip}</span>`;
             return data.ip;
         } catch (err) {
             myIpBadge.innerHTML = `<i class="fas fa-exclamation-triangle me-2 text-warning"></i>Offline / Blocked`;
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return `
                 <tr class="animate__animated animate__fadeIn">
                     <td><div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div><span class="badge ${isTrap ? 'bg-danger' : 'bg-primary'} extra-small" style="font-size:0.6rem">${isTrap ? 'LINK TRAP' : 'LIVE TRACK'}</span></td>
-                    <td><strong>${log.ip}</strong><br><span class="text-muted extra-small">${log.isp || '-'}</span></td>
+                    <td><div class="font-monospace text-info fw-bold">${log.ip}</div><div class="text-muted extra-small"><i class="fas fa-network-wired me-1"></i>${log.isp || 'Unknown Provider'}</div></td>
                     <td><span class="small text-white">${log.location}</span></td>
                     <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
                 </tr>`;
@@ -166,9 +166,15 @@ document.addEventListener('DOMContentLoaded', function () {
             showLoading(false);
             resultArea.innerHTML = `
                 <div class="result-card border-primary border-opacity-25 animate__animated animate__fadeInUp">
-                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-user-secret me-2"></i>Intel: ${data.ip}</h5>
-                    <div class="small mb-1 text-muted">LOKASI: ${data.location}</div>
-                    <div class="small mb-3 text-muted">ISP: ${data.isp}</div>
+                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-fingerprint me-2"></i>Intel: <span class="font-monospace">${data.ip}</span></h5>
+                    <div class="mb-2">
+                        <div class="data-label">Lokasi Terdeteksi</div>
+                        <div class="text-white small">${data.location}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="data-label">Provider (ISP)</div>
+                        <div class="text-white small font-monospace">${data.isp}</div>
+                    </div>
                     <a href="https://www.google.com/maps?q=${data.lat},${data.lon}" target="_blank" class="map-link w-100 text-center py-2">BUKA PETA</a>
                 </div>`;
             await saveLog(data, targetIp ? 'MANUAL' : 'LIVE');
