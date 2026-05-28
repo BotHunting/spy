@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const logsBody = document.getElementById('logs-body');
     const cloudApiInput = document.getElementById('cloud-api-url');
     const btnSaveSettings = document.getElementById('btn-save-settings');
+    const btnGeolocation = document.getElementById('btn-geolocation');
 
     // Secret Settings Unlock Logic
     let iconClicks = 0;
@@ -180,6 +181,59 @@ document.addEventListener('DOMContentLoaded', function () {
             await saveLog(data, targetIp ? 'MANUAL' : 'LIVE');
         } catch (e) { showLoading(false); alert(e.message); }
     }
+
+    btnGeolocation.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            alert("Perangkat atau browser Anda tidak mendukung fitur GPS Geolocation.");
+            return;
+        }
+
+        showLoading(true);
+        resultArea.innerHTML = '';
+        geoResult.classList.add('d-none');
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                showLoading(false);
+                geoResult.classList.remove('d-none');
+                
+                geoData.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="data-label text-info">Garis Lintang (Lat)</div>
+                            <div class="text-white fw-bold font-monospace fs-5">${latitude}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="data-label text-info">Garis Bujur (Lon)</div>
+                            <div class="text-white fw-bold font-monospace fs-5">${longitude}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="data-label text-info">Tingkat Akurasi</div>
+                            <div class="text-white small font-monospace"><i class="fas fa-bullseye me-1"></i>± ${accuracy.toFixed(2)} meter</div>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <a href="https://www.google.com/maps?q=${latitude},${longitude}" target="_blank" class="btn btn-outline-info w-100 py-2 fw-bold">
+                                <i class="fas fa-map-marked-alt me-2"></i>LIHAT POSISI DI PETA
+                            </a>
+                        </div>
+                    </div>`;
+                
+                try {
+                    const data = await fetchIpIntel('');
+                    await saveLog({ ...data, lat: latitude, lon: longitude, location: `GPS Precise (Acc: ${accuracy.toFixed(0)}m)` }, 'GPS');
+                } catch (e) {
+                    await saveLog({ ip: 'Local Device', isp: 'GPS Sensor', lat: latitude, lon: longitude, location: 'High Accuracy GPS' }, 'GPS');
+                }
+            },
+            (error) => {
+                showLoading(false);
+                const msgs = { 1: 'Izin GPS ditolak oleh pengguna.', 2: 'Posisi tidak ditemukan.', 3: 'Waktu permintaan habis.' };
+                alert(`Error: ${msgs[error.code] || error.message}`);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    });
 
     document.getElementById('btn-track-ip').addEventListener('click', () => performTrack(document.getElementById('ip-to-track').value));
     document.getElementById('btn-track-me').addEventListener('click', () => performTrack(''));
