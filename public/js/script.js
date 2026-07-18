@@ -503,7 +503,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 detik timeout
                 
-                await fetch(domain.url, { 
+                // Tambahkan parameter unik untuk mencegah caching hasil request oleh browser
+                await fetch(`${domain.url}?v=${Date.now()}`, { 
                     method: 'GET', // GET lebih umum untuk sumber daya ini dan lebih andal untuk dideteksi
                     mode: 'no-cors', 
                     cache: 'no-store',
