@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const geoData = document.getElementById('geo-data');
     const logsBody = document.getElementById('logs-body');
     const btnGeolocation = document.getElementById('btn-geolocation');
+    const btnRunAdblockTest = document.getElementById('btn-run-adblock-test');
+    const adblockTestResults = document.getElementById('adblock-test-results');
 
     // Default Google Apps Script Web App URL untuk penyimpanan spreadsheet
     const DEFAULT_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbybsV2mGiO8JfXaD9DjkGBbk2Fy2rR37ZAdNaoq9IsqFFQX08zGZvXdnWUGSzDun49huQ/exec';
@@ -462,5 +464,75 @@ document.addEventListener('DOMContentLoaded', function () {
         if (adblockStatus) {
             detectAdBlock();
         }
+    }
+
+    // --- AdBlock Capability Test ---
+    const adblockTestDomains = [
+        { name: 'Google Ads', url: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js' },
+        { name: 'Google Analytics', url: 'https://www.google-analytics.com/analytics.js' },
+        { name: 'Facebook Pixel', url: 'https://connect.facebook.net/en_US/fbevents.js' },
+        { name: 'Doubleclick', url: 'https://static.doubleclick.net/instream/ad_status.js' },
+        { name: 'Yandex Metrica', url: 'https://mc.yandex.ru/metrika/tag.js' },
+        { name: 'IronSource Ads', url: 'https://static.ironsource.mobi/com/ironsource/mobile/sdk/sdk-load/v6.7.0/sdk-loader.min.js' },
+        { name: 'FingerprintJS', url: 'https://cdn.fingerprintjs.com/v3/fingerprint.js' },
+        { name: 'Criteo Ads', url: 'https://static.criteo.net/js/ld/ld.js' },
+        { name: 'Taboola', url: 'https://cdn.taboola.com/libtrc/universal/trc.js' },
+        { name: 'Outbrain', url: 'https://widgets.outbrain.com/outbrain.js' }
+    ];
+
+    const runAdBlockTest = async () => {
+        adblockTestResults.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-danger" role="status"></div>
+                <p class="mt-2 text-muted">Menjalankan pengujian...</p>
+            </div>`;
+        btnRunAdblockTest.disabled = true;
+
+        let blockedCount = 0;
+        const results = [];
+
+        for (const domain of adblockTestDomains) {
+            try {
+                // Menggunakan AbortController untuk timeout, mencegah tes menggantung
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 detik timeout
+                
+                await fetch(domain.url, { 
+                    method: 'HEAD', // HEAD lebih efisien, tidak perlu body
+                    mode: 'no-cors', 
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                results.push({ name: domain.name, blocked: false });
+            } catch (error) {
+                results.push({ name: domain.name, blocked: true });
+                blockedCount++;
+            }
+        }
+
+        const score = (blockedCount / adblockTestDomains.length) * 100;
+        let scoreColor = 'success';
+        if (score > 50) scoreColor = 'warning';
+        if (score > 80) scoreColor = 'danger';
+
+        let resultsHTML = `
+            <div class="text-center mb-4 animate__animated animate__fadeIn">
+                <h5 class="fw-bold">Skor Pemblokiran: <span class="text-${scoreColor}">${score.toFixed(0)}%</span></h5>
+                <p class="small text-muted">${blockedCount} dari ${adblockTestDomains.length} sumber daya berhasil diblokir.</p>
+            </div>
+            <ul class="list-group list-group-flush">
+                ${results.map(result => `
+                    <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center text-white animate__animated animate__fadeInUp">
+                        <span>${result.name}</span>
+                        ${result.blocked ? '<span class="badge bg-danger"><i class="fas fa-check-circle me-1"></i> Diblokir</span>' : '<span class="badge bg-success opacity-50"><i class="fas fa-exclamation-triangle me-1"></i> Diizinkan</span>'}
+                    </li>`).join('')}
+            </ul>`;
+        adblockTestResults.innerHTML = resultsHTML;
+        btnRunAdblockTest.disabled = false;
+    };
+
+    if (btnRunAdblockTest) {
+        btnRunAdblockTest.addEventListener('click', runAdBlockTest);
     }
 });
