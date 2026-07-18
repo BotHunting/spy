@@ -468,16 +468,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- AdBlock Capability Test ---
     const adblockTestDomains = [
+        // Referensi dari src/adblock.txt
         { name: 'Google Ads', url: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js' },
         { name: 'Google Analytics', url: 'https://www.google-analytics.com/analytics.js' },
         { name: 'Facebook Pixel', url: 'https://connect.facebook.net/en_US/fbevents.js' },
         { name: 'Doubleclick', url: 'https://static.doubleclick.net/instream/ad_status.js' },
         { name: 'Yandex Metrica', url: 'https://mc.yandex.ru/metrika/tag.js' },
-        { name: 'IronSource Ads', url: 'https://static.ironsource.mobi/com/ironsource/mobile/sdk/sdk-load/v6.7.0/sdk-loader.min.js' },
+        { name: 'Microsoft Ads', url: 'https://c.bing.com/c.gif' },
+        { name: 'Yahoo Ads', url: 'https://adtech.yahooinc.com/' },
+        { name: 'Twitter Analytics', url: 'https://analytics.twitter.com/i/adsct' },
+        { name: 'IronSource Ads', url: 'https://www.is.com/' },
         { name: 'FingerprintJS', url: 'https://cdn.fingerprintjs.com/v3/fingerprint.js' },
-        { name: 'Criteo Ads', url: 'https://static.criteo.net/js/ld/ld.js' },
+        { name: 'OneSignal Push', url: 'https://onesignal.com/api/v1/players' },
+        { name: 'Klaviyo Marketing', url: 'https://static.klaviyo.com/onsite/js/klaviyo.js' },
+        { name: 'Cookiebot CMP', url: 'https://consent.cookiebot.com/uc.js' },
         { name: 'Taboola', url: 'https://cdn.taboola.com/libtrc/universal/trc.js' },
-        { name: 'Outbrain', url: 'https://widgets.outbrain.com/outbrain.js' }
+        { name: 'Outbrain', url: 'https://widgets.outbrain.com/outbrain.js' },
     ];
 
     const runAdBlockTest = async () => {
