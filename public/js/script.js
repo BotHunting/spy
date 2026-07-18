@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 detik timeout
                 
                 await fetch(domain.url, { 
-                    method: 'HEAD', // HEAD lebih efisien, tidak perlu body
+                    method: 'GET', // GET lebih umum untuk sumber daya ini dan lebih andal untuk dideteksi
                     mode: 'no-cors', 
                     cache: 'no-store',
                     signal: controller.signal
@@ -518,14 +518,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const score = (blockedCount / adblockTestDomains.length) * 100;
-        let scoreColor = 'success';
-        if (score > 50) scoreColor = 'warning';
-        if (score > 80) scoreColor = 'danger';
+        let scoreColor = 'success'; // Hijau untuk skor rendah
+        let scoreLabel = 'Perlindungan Dasar';
+        if (score > 40) { scoreColor = 'warning'; scoreLabel = 'Perlindungan Baik'; } // Kuning untuk skor menengah
+        if (score > 80) { scoreColor = 'danger'; scoreLabel = 'Perlindungan Sangat Kuat'; } // Merah untuk skor tinggi (pemblokiran kuat)
 
         let resultsHTML = `
             <div class="text-center mb-4 animate__animated animate__fadeIn">
-                <h5 class="fw-bold">Skor Pemblokiran: <span class="text-${scoreColor}">${score.toFixed(0)}%</span></h5>
-                <p class="small text-muted">${blockedCount} dari ${adblockTestDomains.length} sumber daya berhasil diblokir.</p>
+                <h5 class="fw-bold">Skor Kekuatan: <span class="text-${scoreColor}">${score.toFixed(0)}%</span></h5>
+                <p class="fw-bold text-${scoreColor}">${scoreLabel}</p>
+                <p class="small text-muted">${blockedCount} dari ${adblockTestDomains.length} target pengujian berhasil diblokir.</p>
+                <p class="extra-small text-muted opacity-75 mt-2 px-3">Catatan: Skor 100% tidak selalu diperlukan. Skor di atas 80% sudah menunjukkan perlindungan yang sangat efektif terhadap berbagai jenis pelacak umum.</p>
             </div>
             <ul class="list-group list-group-flush">
                 ${results.map(result => `
