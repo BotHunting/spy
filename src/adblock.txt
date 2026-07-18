@@ -1,5 +1,5 @@
 [Adblock Plus]
-! Title: Bot Hunting DNS Blocklist
+! Title: Bot Hunting Adblock List
 ! Description: Ultimate Sweeper - Strictly cleans the Internet and protects your privacy! Blocks Ads, Affiliate, Tracking, Metrics, Telemetry, Phishing, Malware, Scam, Free Hoster, Fake, Crytojacking and other "Crap".
 ! Homepage: https://github.com/BotHunting/spy
 ! License: https://github.com/BotHunting/spy/blob/main/LICENSE
