@@ -1,3 +1,17 @@
+[Adblock Plus]
+! Title: Bot Hunting DNS Blocklist
+! Description: Ultimate Sweeper - Strictly cleans the Internet and protects your privacy! Blocks Ads, Affiliate, Tracking, Metrics, Telemetry, Phishing, Malware, Scam, Free Hoster, Fake, Crytojacking and other "Crap".
+! Homepage: https://github.com/BotHunting/spy
+! License: https://github.com/BotHunting/spy/blob/main/LICENSE
+! Issues: https://github.com/BotHunting/spy/issues
+! Disclaimer: https://github.com/BotHunting/spy/blob/main/README.md#disclaimer
+! Expires: 1 day
+! Last modified: 18 Jul 2026 08:03 UTC
+! Version: 2026.0718.0803.49
+! Syntax: AdBlock
+! Number of entries: 295954
+!
+
 ! --- Memperbaiki Elemen Kosmetik & Skrip yang Jebol ---
 adblock.turtlecute.org##.adbox.banner_ads.adsbox
 adblock.turtlecute.org##.textads
