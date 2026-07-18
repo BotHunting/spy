@@ -102,6 +102,7 @@ adblock.turtlecute.org##.textads
 ||app.usercentrics.eu^$important
 ||cdn.cookielaw.org^$important
 ||cdn.privacy-mgmt.com^$important
+||cmp.inmobi.com^$important
 ||consent.cookiebot.com^$important
 ||consent.trustarc.com^$important
 ||consentcdn.cookiebot.com^$important
