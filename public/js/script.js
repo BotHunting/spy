@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
     const myIpBadge = document.getElementById('my-ip-badge');
-    const adblockStatus = document.getElementById('adblock-status');
     const loading = document.getElementById('loading');
     const resultArea = document.getElementById('result-area');
     const geoResult = document.getElementById('geo-result');
@@ -18,23 +17,6 @@ document.addEventListener('DOMContentLoaded', function () {
      * Prioritas: 1. LocalStorage (User Settings), 2. Default Cloud URL.
      */
     const getCUrl = () => localStorage.getItem('spy_cloud_url') || DEFAULT_CLOUD_URL;
-
-    /**
-     * Mendeteksi AdBlock dengan memeriksa apakah file 'umpan' (ads.js) berhasil dimuat.
-     */
-    const detectAdBlock = () => {
-        // Beri waktu sejenak agar skrip umpan dimuat atau diblokir.
-        setTimeout(() => {
-            if (window.adBlockerCheck === undefined) {
-                // Variabel tidak di-set, artinya file diblokir.
-                adblockStatus.innerHTML = '<i class="fas fa-shield-alt me-1"></i> AdBlock ON';
-                adblockStatus.className = 'badge bg-danger ms-2';
-            } else {
-                adblockStatus.innerHTML = '<i class="fas fa-shield-alt me-1"></i> AdBlock OFF';
-                adblockStatus.className = 'badge bg-success opacity-50 ms-2';
-            }
-        }, 200);
-    };
 
     /**
      * Mengambil jejak digital perangkat (Device Fingerprinting).
@@ -459,11 +441,6 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         runTrap();
-    } else {
-        // Jalankan deteksi AdBlock hanya jika bukan halaman jebakan
-        if (adblockStatus) {
-            detectAdBlock();
-        }
     }
 
     // --- AdBlock Capability Test ---
